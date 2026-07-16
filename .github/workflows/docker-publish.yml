@@ -1,0 +1,60 @@
+name: Build and Publish Docker Image
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ 'v*' ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # 1. 升级到支持新 Node 版本的 actions/checkout
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2  # 锁定具体修复了 Node20 弃用警告的最新 patch 版本
+
+      # 2. 升级设置 QEMU 仿真器
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3.5.0 # 升级内部 runtime 支持
+
+      # 3. 升级设置 Buildx 构建器
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.9.0 # 升级支持
+
+      # 4. 登录到 GitHub Container Registry
+      - name: Log into registry ${{ env.REGISTRY }}
+        uses: docker/login-action@v3.3.0 # 升级支持
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 5. 提取元数据
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5.6.1 # 升级支持
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=semver,pattern={{version}}
+
+      # 6. 执行多架构编译并推送至 GHCR
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6.12.0 # 升级支持
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

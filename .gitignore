@@ -1,0 +1,6 @@
+# 忽略编译打包产物
+*.tar
+pump-service-multiarch.tar
+
+# 忽略运行期数据
+records/

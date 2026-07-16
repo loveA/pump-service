@@ -1,0 +1,45 @@
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "50m"  # 单个日志文件最大 50MB
+    max-file: "3"    # 最多保留 3 个日志归档文件（旧的自动删除）
+
+services:
+  pump-server:
+    image: pump-service:latest
+    container_name: pump-server
+    privileged: true
+    ports:
+      - "${PUMP_SERVER_PORT}:${PUMP_SERVER_PORT}"
+    environment:
+      - SERVER_PORT=${PUMP_SERVER_PORT}
+    volumes:
+      - ./records:/app/records
+    restart: always
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT}'       # 限制最多使用 1.5 核 CPU
+          memory: ${MEMORY_LIMIT}    # 限制最多使用 2G 内存
+        reservations:
+          memory: 512M               # 预留 512M 内存底线
+
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: go2rtc
+    ports:
+      - "${GO2RTC_API_PORT}:1984"
+      - "${GO2RTC_RTSP_PORT}:8554"
+      - "8555:8555/tcp"
+      - "8555:8555/udp"
+    volumes:
+      - /opt/go2rtc/go2rtc.yaml:/config/go2rtc.yaml
+    restart: always
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'                # 视频流转发依赖 CPU，给予稍高配额
+          memory: 2G
